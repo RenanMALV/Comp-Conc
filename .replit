@@ -1,0 +1,1 @@
+run="gcc -pthread main.c -o main -Wall && ./main"
