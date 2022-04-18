@@ -1,42 +1,57 @@
-#include<stdio.h>
-#include<pthread.h>
+/* Disciplina: Computacao Concorrente */
+/* Prof.: Silvana Rossetto */
+/* Módulo 1 - Laboratório: 1 */
+/* Codigo: "Hello World" usando threads em C e a funcao que espera as threads terminarem */
 
-#define NTHREADS 10
+#include <stdio.h>
+#include <stdlib.h> 
+#include <pthread.h>
 
-int vetor[NTHREADS];
+#define NTHREADS  10 //total de threads a serem criadas
 
-//funcao que a thread ira executar
-void * tarefa (void * arg) {
-   int ident = * (int *) arg;
-   vetor[ident-1] = ident;
-   printf("Ola, sou a thread %d!\n", ident);
-   pthread_exit(NULL);
+//cria a estrutura de dados para armazenar os argumentos da thread
+typedef struct {
+   int idThread, nThreads;
+} t_Args;
+
+//funcao executada pelas threads
+void *PrintHello (void *arg) {
+  t_Args *args = (t_Args *) arg;
+
+  printf("Sou a thread %d de %d threads\n", args->idThread, args->nThreads);
+  free(arg); //aqui pode liberar a alocacao feita na main
+
+  pthread_exit(NULL);
 }
 
-//funcao principal
-int main(void) {
-    pthread_t tid[NTHREADS]; //identificador da thread no sistema
-    int ident[NTHREADS]; //identificador local da thread
-    //cria as threads 
-    for(int i=1; i<=NTHREADS; i++) {
-       ident[i-1] = i;
-       if (pthread_create(&tid[i-1], NULL, tarefa, (void *)&ident[i-1])) 
-          printf("ERRO -- pthread_create\n");
-    }
-    //espera as threads terminarem 
-    for(int i=0; i<NTHREADS; i++) {
-       if (pthread_join(tid[i], NULL)) 
-          printf("ERRO -- pthread_join\n");
-    }
-    //imprimir o vetor de identificadores
-    for(int i=0; i<NTHREADS; i++) 
-       printf("%d ", vetor[i]);
-    printf("\n");
+//funcao principal do programa
+int main() {
+  pthread_t tid_sistema[NTHREADS]; //identificadores das threads no sistema
+  int thread; //variavel auxiliar
+  t_Args *arg; //receberá os argumentos para a thread
 
-    //imprime a mensagem de boas vindas
-    printf("Ola, sou a thread principal!\n");
+  for(thread=0; thread<NTHREADS; thread++) {
+    printf("--Aloca e preenche argumentos para thread %d\n", thread);
+    arg = malloc(sizeof(t_Args));
+    if (arg == NULL) {
+      printf("--ERRO: malloc()\n"); exit(-1);
+    }
+    arg->idThread = thread; 
+    arg->nThreads = NTHREADS; 
+    
+    printf("--Cria a thread %d\n", thread);
+    if (pthread_create(&tid_sistema[thread], NULL, PrintHello, (void*) arg)) {
+      printf("--ERRO: pthread_create()\n"); exit(-1);
+    }
+  }
 
-    //desvincula o termino da main do termino programa
-    //pthread_exit(NULL);
-    return 0;
+  //--espera todas as threads terminarem
+  for (thread=0; thread<NTHREADS; thread++) {
+    if (pthread_join(tid_sistema[thread], NULL)) {
+         printf("--ERRO: pthread_join() \n"); exit(-1); 
+    } 
+  }
+
+  printf("--Thread principal terminou\n");
+  pthread_exit(NULL);
 }
