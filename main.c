@@ -1,12 +1,12 @@
-/* Multiplicacao de matriz-vetor (considerando matrizes quadradas) */
+/* Multiplicacao de matriz-matriz (considerando matrizes quadradas) */
 #include<stdio.h>
 #include<stdlib.h>
 #include<pthread.h>
 #include "timer.h"
 
-float *mat; //matriz de entrada
-float *vet; //vetor de entrada
-float *saida; //vetor de saida
+float *matA; //matriz A de entrada
+float *matB; //matriz B de entrada
+float *saida; //matriz de saida
 int nthreads; //numero de threads
 
 typedef struct{
@@ -20,7 +20,7 @@ void * tarefa(void *arg) {
    //printf("Thread %d\n", args->id);
    for(int i=args->id; i<args->dim; i+=nthreads)
       for(int j=0; j<args->dim; j++) 
-         saida[i] += mat[i*(args->dim) + j] * vet[j];
+         saida[i] += matA[i*(args->dim) + j] * matB[j];
    pthread_exit(NULL);
 }
 
@@ -42,19 +42,20 @@ int main(int argc, char* argv[]) {
    if (nthreads > dim) nthreads=dim;
 
    //alocacao de memoria para as estruturas de dados
-   mat = (float *) malloc(sizeof(float) * dim * dim);
-   if (mat == NULL) {printf("ERRO--malloc\n"); return 2;}
-   vet = (float *) malloc(sizeof(float) * dim);
-   if (vet == NULL) {printf("ERRO--malloc\n"); return 2;}
-   saida = (float *) malloc(sizeof(float) * dim);
+   matA = (float *) malloc(sizeof(float) * dim * dim);
+   if (matA == NULL) {printf("ERRO--malloc\n"); return 2;}
+   matB = (float *) malloc(sizeof(float) * dim * dim);
+   if (matB == NULL) {printf("ERRO--malloc\n"); return 2;}
+   saida = (float *) malloc(sizeof(float) * dim * dim);
    if (saida == NULL) {printf("ERRO--malloc\n"); return 2;}
 
    //inicializacao das estruturas de dados de entrada e saida
    for(int i=0; i<dim; i++) {
-      for(int j=0; j<dim; j++)
-         mat[i*dim+j] = 1;    //equivalente mat[i][j]
-      vet[i] = 1; 
-      saida[i] = 0;
+      for(int j=0; j<dim; j++){
+        matA[i*dim+j] = 1;    //equivalente mat[i][j]
+        matB[i*dim+j] = 1; 
+        saida[i*dim+j] = 0;
+      }
    }
    GET_TIME(fim);
    delta = fim - inicio;
@@ -85,8 +86,8 @@ int main(int argc, char* argv[]) {
 
    //liberacao da memoria
    GET_TIME(inicio);
-   free(mat);
-   free(vet);
+   free(matA);
+   free(matB);
    free(saida);
    free(args);
    free(tid);
