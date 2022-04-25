@@ -1,5 +1,5 @@
 # Comp-Conc
-## Lab - 1
+## Lab - 2
 
 Trabalhos de computação concorrente
 
