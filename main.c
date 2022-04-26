@@ -7,6 +7,7 @@
 float *matA; //matriz A de entrada
 float *matB; //matriz B de entrada
 float *saida; //matriz de saida
+float *result; // matriz para verificar a corretude
 int nthreads; //numero de threads
 
 typedef struct{
@@ -18,10 +19,15 @@ typedef struct{
 void * tarefa(void *arg) {
    tArgs *args = (tArgs*) arg;
    //printf("Thread %d\n", args->id);
-   for(int i=args->id; i<args->dim; i+=nthreads)
-      for(int j=0; j<args->dim; j++) 
-         saida[i] += matA[i*(args->dim) + j] * matB[j];
-   pthread_exit(NULL);
+  for(int i = args->id; i<args->dim; i+=nthreads){
+    for(int j = 0; j<args->dim; j++){
+      for (int k = 0; k <args->dim; k++) {
+          saida[i*args->dim+j] += matA[i*args->dim+k] * matB[k*args->dim+j];
+      }
+    }
+  }
+  pthread_exit(NULL);
+  //return NULL;
 }
 
 //fluxo principal
@@ -48,13 +54,17 @@ int main(int argc, char* argv[]) {
    if (matB == NULL) {printf("ERRO--malloc\n"); return 2;}
    saida = (float *) malloc(sizeof(float) * dim * dim);
    if (saida == NULL) {printf("ERRO--malloc\n"); return 2;}
+   result = (float *) malloc(sizeof(float) * dim * dim);
+   if (result == NULL) {printf("ERRO--malloc\n"); return 2;}
 
+   srand((unsigned) time(NULL));
    //inicializacao das estruturas de dados de entrada e saida
    for(int i=0; i<dim; i++) {
       for(int j=0; j<dim; j++){
-        matA[i*dim+j] = 1;    //equivalente mat[i][j]
-        matB[i*dim+j] = 1; 
+        matA[i*dim+j] = rand()%1000;    //equivalente mat[i][j]
+        matB[i*dim+j] = rand()%1000; 
         saida[i*dim+j] = 0;
+        result[i*dim+j] = 0;
       }
    }
    GET_TIME(fim);
@@ -80,9 +90,24 @@ int main(int argc, char* argv[]) {
    for(int i=0; i<nthreads; i++) {
       pthread_join(*(tid+i), NULL);
    }
-   GET_TIME(fim)   
+   GET_TIME(fim);   
    delta = fim - inicio;
    printf("Tempo multiplicacao (dimensao %d) (nthreads %d): %lf\n", dim, nthreads, delta);
+
+  //Verificando a corretude da soluçao
+
+  for(int i = 0; i<dim; i++){
+    for(int j = 0; j<dim; j++){
+      for (int k = 0; k < dim; k++) {
+          result[i*dim+j] += matA[i*dim+k] * matB[k*dim+j];
+          
+      }
+      //printf("%lf ",saida[i*dim+j]);
+      if(saida[i*dim+j] != result[i*dim+j])
+        return -1;
+    }
+    //printf("\n");
+  }
 
    //liberacao da memoria
    GET_TIME(inicio);
@@ -91,9 +116,11 @@ int main(int argc, char* argv[]) {
    free(saida);
    free(args);
    free(tid);
-   GET_TIME(fim)   
+   GET_TIME(fim);   
    delta = fim - inicio;
    //printf("Tempo finalizacao:%lf\n", delta);
 
-   return 0;
+  printf("Passou no teste de corretude\n");
+
+  return 0;
 }
