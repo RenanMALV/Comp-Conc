@@ -1,126 +1,96 @@
-/* Multiplicacao de matriz-matriz (considerando matrizes quadradas) */
+//Soma todos os elementos de um vetor de inteiro
 #include<stdio.h>
 #include<stdlib.h>
 #include<pthread.h>
 #include "timer.h"
 
-float *matA; //matriz A de entrada
-float *matB; //matriz B de entrada
-float *saida; //matriz de saida
-float *result; // matriz para verificar a corretude
+long int dim; //dimensao do vetor de entrada
 int nthreads; //numero de threads
+double *vetor; //vetor de entrada com dimensao dim 
 
-typedef struct{
-   int id; //identificador do elemento que a thread ira processar
-   int dim; //dimensao das estruturas de entrada
-} tArgs;
-
-//funcao que as threads executarao
-void * tarefa(void *arg) {
-   tArgs *args = (tArgs*) arg;
-   //printf("Thread %d\n", args->id);
-  for(int i = args->id; i<args->dim; i+=nthreads){
-    for(int j = 0; j<args->dim; j++){
-      for (int k = 0; k <args->dim; k++) {
-          saida[i*args->dim+j] += matA[i*args->dim+k] * matB[k*args->dim+j];
-      }
-    }
-  }
-  pthread_exit(NULL);
-  //return NULL;
+//fluxo das threads
+void * tarefa(void * arg) {
+   long int id = (long int) arg; //identificador da thread
+   double *somaLocal; //variavel local da soma de elementos
+   somaLocal = (double*) malloc(sizeof(double));
+   if(somaLocal==NULL) {exit(1);}
+   long int tamBloco = dim/nthreads;  //tamanho do bloco de cada thread 
+   long int ini = id * tamBloco; //elemento inicial do bloco da thread
+   long int fim; //elemento final(nao processado) do bloco da thread
+   if(id == nthreads-1) fim = dim;
+   else fim = ini + tamBloco; //trata o resto se houver
+   //soma os elementos do bloco da thread
+   for(long int i=ini; i<fim; i++)
+      *somaLocal += vetor[i];
+   //retorna o resultado da soma local
+   pthread_exit((void *) somaLocal); 
 }
 
 //fluxo principal
-int main(int argc, char* argv[]) {
-   int dim; //dimensao da matriz de entrada
+int main(int argc, char *argv[]) {
+   double somaSeq= 0; //soma sequencial
+   double somaConc= 0; //soma concorrente
+   double ini, fim; //tomada de tempo
    pthread_t *tid; //identificadores das threads no sistema
-   tArgs *args; //identificadores locais das threads e dimensao
-   double inicio, fim, delta;
-   
-   GET_TIME(inicio);
-   //leitura e avaliacao dos parametros de entrada
-   if(argc<3) {
-      printf("Digite: %s <dimensao da matriz> <numero de threads>\n", argv[0]);
-      return 1;
+   double *retorno; //valor de retorno das threads
+
+   //recebe e valida os parametros de entrada (dimensao do vetor, numero de threads)
+   if(argc < 3) {
+       fprintf(stderr, "Digite: %s <dimensao do vetor> <numero threads>\n", argv[0]);
+       return 1; 
    }
    dim = atoi(argv[1]);
    nthreads = atoi(argv[2]);
-   if (nthreads > dim) nthreads=dim;
+   //aloca o vetor de entrada
+   vetor = (double*) malloc(sizeof(double)*dim);
+   if(vetor == NULL) {
+      fprintf(stderr, "ERRO--malloc\n");
+      return 2;
+   }
+   //preenche o vetor de entrada
+   for(long int i=0; i<dim; i++)
+      vetor[i] = 1000.1/(i+1);
+  
+   //soma sequencial dos elementos
+   GET_TIME(ini);
+   for(long int i=0; i<dim; i++)
+      somaSeq += vetor[i];   
+   GET_TIME(fim);
+   printf("Tempo sequencial:  %lf\n", fim-ini);
 
-   //alocacao de memoria para as estruturas de dados
-   matA = (float *) malloc(sizeof(float) * dim * dim);
-   if (matA == NULL) {printf("ERRO--malloc\n"); return 2;}
-   matB = (float *) malloc(sizeof(float) * dim * dim);
-   if (matB == NULL) {printf("ERRO--malloc\n"); return 2;}
-   saida = (float *) malloc(sizeof(float) * dim * dim);
-   if (saida == NULL) {printf("ERRO--malloc\n"); return 2;}
-   result = (float *) malloc(sizeof(float) * dim * dim);
-   if (result == NULL) {printf("ERRO--malloc\n"); return 2;}
-
-   srand((unsigned) time(NULL));
-   //inicializacao das estruturas de dados de entrada e saida
-   for(int i=0; i<dim; i++) {
-      for(int j=0; j<dim; j++){
-        matA[i*dim+j] = rand()%1000;    //equivalente mat[i][j]
-        matB[i*dim+j] = rand()%1000; 
-        saida[i*dim+j] = 0;
-        result[i*dim+j] = 0;
+   //soma concorrente dos elementos
+   GET_TIME(ini);
+   tid = (pthread_t *) malloc(sizeof(pthread_t) * nthreads);
+   if(tid==NULL) {
+      fprintf(stderr, "ERRO--malloc\n");
+      return 2;
+   }
+   //criar as threads
+   for(long int i=0; i<nthreads; i++) {
+      if(pthread_create(tid+i, NULL, tarefa, (void*) i)){
+         fprintf(stderr, "ERRO--pthread_create\n");
+         return 3;
       }
+   }
+   //aguardar o termino das threads
+   for(long int i=0; i<nthreads; i++) {
+      if(pthread_join(*(tid+i), (void**) &retorno)){
+         fprintf(stderr, "ERRO--pthread_create\n");
+         return 3;
+      }
+      //soma global
+      somaConc += *retorno;
    }
    GET_TIME(fim);
-   delta = fim - inicio;
-   //printf("Tempo inicializacao:%lf\n", delta);
+   printf("Tempo concorrente:  %lf\n", fim-ini);
 
-   //multiplicacao da matriz pelo vetor
-   GET_TIME(inicio);
-   //alocacao das estruturas
-   tid = (pthread_t*) malloc(sizeof(pthread_t)*nthreads);
-   if(tid==NULL) {puts("ERRO--malloc"); return 2;}
-   args = (tArgs*) malloc(sizeof(tArgs)*nthreads);
-   if(args==NULL) {puts("ERRO--malloc"); return 2;}
-   //criacao das threads
-   for(int i=0; i<nthreads; i++) {
-      (args+i)->id = i;
-      (args+i)->dim = dim;
-      if(pthread_create(tid+i, NULL, tarefa, (void*) (args+i))){
-         puts("ERRO--pthread_create"); return 3;
-      }
-   } 
-   //espera pelo termino da threads
-   for(int i=0; i<nthreads; i++) {
-      pthread_join(*(tid+i), NULL);
-   }
-   GET_TIME(fim);   
-   delta = fim - inicio;
-   printf("Tempo multiplicacao (dimensao %d) (nthreads %d): %lf\n", dim, nthreads, delta);
+   //exibir os resultados
+   printf("Soma seq:  %.12lf\n", somaSeq);
+   printf("Soma conc: %.12lf\n", somaConc);
 
-  //Verificando a corretude da soluçao
-
-  for(int i = 0; i<dim; i++){
-    for(int j = 0; j<dim; j++){
-      for (int k = 0; k < dim; k++) {
-          result[i*dim+j] += matA[i*dim+k] * matB[k*dim+j];
-          
-      }
-      //printf("%lf ",saida[i*dim+j]);
-      if(saida[i*dim+j] != result[i*dim+j])
-        return -1;
-    }
-    //printf("\n");
-  }
-
-   //liberacao da memoria
-   GET_TIME(inicio);
-   free(matA);
-   free(matB);
-   free(saida);
-   free(args);
+   //libera as areas de memoria alocadas
+   free(vetor);
    free(tid);
-   GET_TIME(fim);   
-   delta = fim - inicio;
-   //printf("Tempo finalizacao:%lf\n", delta);
 
-  printf("Passou no teste de corretude\n");
-
-  return 0;
+   return 0;
 }
