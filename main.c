@@ -1,4 +1,4 @@
-//Soma todos os elementos de um vetor de inteiro
+//Verifica o máximo e mínimo entre todos os elementos de um vetor de reais
 #include<stdio.h>
 #include<stdlib.h>
 #include<pthread.h>
@@ -38,7 +38,7 @@ void * tarefa(void * arg) {
     if(valoresLocal->min > vetor[i])
       valoresLocal->min = vetor[i];
   }
-  //retorna o resultado da soma local (ponteiro)
+  //retorna o resultado da verificação local (ponteiro)
   pthread_exit((void *) valoresLocal); 
 }
 
