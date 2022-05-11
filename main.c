@@ -84,13 +84,13 @@ int main(int argc, char* argv[]) {
    if (entrada == NULL) {printf("ERRO--malloc\n"); return 2;}
    saida = (float *) malloc(sizeof(float) * dim);
    if (saida == NULL) {printf("ERRO--malloc\n"); return 2;}
-   result = (float *) malloc(sizeof(float) * dim * dim);
+   result = (float *) malloc(sizeof(float) * dim);
    if (result == NULL) {printf("ERRO--malloc\n"); return 2;}
 
    srand((unsigned) time(NULL));
    //inicializacao das estruturas de dados de entrada e saida
    for(int i=0; i<dim; i++) {
-    entrada[i] = rand()%1000; 
+    entrada[i] = rand(); 
     saida[i] = 0;
     result[i] = 0;
    }
@@ -136,7 +136,6 @@ int main(int argc, char* argv[]) {
   GET_TIME(fim);   
   delta = fim - inicio;
   printf("Tempo sequencial: %lf\n", delta);
-  printf("%lf %lf\n", saida[0], result[0]);
   for(int i=0; i<dim; i++) {
     if(result[i] != saida[i]){
       printf("Falhou no teste de corretude\n");
