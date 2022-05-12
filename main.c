@@ -11,7 +11,7 @@ float *saida; //matriz de saida
 float *result; // matriz para verificar a corretude
 int nthreads; //numero de threads
 
-int global_iter; //iterador global
+int global_iter = 0; //iterador global
 pthread_mutex_t mutex; //variavel de lock para exclusao mutua
 
 typedef struct{
