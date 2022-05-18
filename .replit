@@ -1,1 +1,1 @@
-run="gcc -pthread main.c -o main -Wall -lm && ./main 100000 2"
+run="gcc -pthread main.c -o main -Wall && ./main"
