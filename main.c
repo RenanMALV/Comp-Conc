@@ -104,6 +104,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* Desaloca variaveis e termina */
+  free(args);
   pthread_mutex_destroy(&primeiro_contador_mutex);
   pthread_mutex_destroy(&ultimo_contador_mutex);
   pthread_cond_destroy(&meio_cond);
