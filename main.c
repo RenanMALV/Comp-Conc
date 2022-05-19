@@ -93,8 +93,8 @@ int main(int argc, char *argv[]) {
   /* Cria as threads */
   pthread_create(&threads[0], NULL, fim, NULL);
   for(int i=1; i <= 3; i++){
-    (args+i)->id = i;
-    pthread_create(&threads[i], NULL, meio, (void*) (args+i)); 
+    (args+(i-1))->id = i;
+    pthread_create(&threads[i], NULL, meio, (void*) (args+(i-1))); 
   }
   pthread_create(&threads[4], NULL, inicio, NULL);
 
