@@ -30,9 +30,7 @@ void * inicio() {
   primeiro_contador++;
   pthread_mutex_unlock(&primeiro_contador_mutex);
 
-  pthread_mutex_lock(&ultimo_contador_mutex);
   pthread_cond_broadcast(&meio_cond);
-  pthread_mutex_unlock(&ultimo_contador_mutex);
 
   pthread_exit(NULL);
 }
