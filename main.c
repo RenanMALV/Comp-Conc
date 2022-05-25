@@ -1,110 +1,119 @@
-/*
-Lab-5
-Disciplina: Computacao Concorrente 
+// Aluno: Renan Mendanha
+/* Disciplina: Computacao Concorrente */
+/* Prof.: Silvana Rossetto */
+/* Descricao: implementa  o problema dos leitores/escritores usando variaveis de condicao da biblioteca Pthread
 */
 
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include<pthread.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<unistd.h>
 
-#define NTHREADS  5
+#define L 4 //numero de threads leitoras
+#define E 2 //numero de threads escritoras
 
-typedef struct{
-  int id; //identificador do elemento que a thread ira processar
-} tArgs;
+//variaveis do problema
+int leit=0; //contador de threads lendo
+int escr=0; //contador de threads escrevendo
 
-/* Variaveis globais */
-int primeiro_contador = 0;
-int ultimo_contador = 0;
-pthread_mutex_t primeiro_contador_mutex;
-pthread_mutex_t ultimo_contador_mutex;
-pthread_cond_t meio_cond;
-pthread_cond_t ultimo_cond;
+//variaveis para sincronizacao
+pthread_mutex_t mutex;
+pthread_cond_t cond_leit, cond_escr;
 
+//entrada leitura
+void InicLeit (int id) {
+   pthread_mutex_lock(&mutex);
+   printf("L[%d] quer ler\n", id);
+   while(escr > 0) {
+     printf("L[%d] bloqueou\n", id);
+     pthread_cond_wait(&cond_leit, &mutex);
+     printf("L[%d] desbloqueou\n", id);
+   }
+   leit++;
+   pthread_mutex_unlock(&mutex);
+}
 
-/* Thread 5 */
-void * inicio() {
-  printf("Seja bem-vindo!\n");
+//saida leitura
+void FimLeit (int id) {
+   pthread_mutex_lock(&mutex);
+   printf("L[%d] terminou de ler\n", id);
+   leit--;
+   if(leit==0) pthread_cond_signal(&cond_escr);
+   pthread_mutex_unlock(&mutex);
+}
 
-  pthread_mutex_lock(&primeiro_contador_mutex);
-  primeiro_contador++;
-  pthread_mutex_unlock(&primeiro_contador_mutex);
+//entrada escrita
+void InicEscr (int id) {
+   pthread_mutex_lock(&mutex);
+   printf("E[%d] quer escrever\n", id);
+   while((leit>0) || (escr>0)) {
+     printf("E[%d] bloqueou\n", id);
+     pthread_cond_wait(&cond_escr, &mutex);
+     printf("E[%d] desbloqueou\n", id);
+   }
+   escr++;
+   pthread_mutex_unlock(&mutex);
+}
 
-  pthread_cond_broadcast(&meio_cond);
+//saida escrita
+void FimEscr (int id) {
+   pthread_mutex_lock(&mutex);
+   printf("E[%d] terminou de escrever\n", id);
+   escr--;
+   pthread_cond_signal(&cond_escr);
+   pthread_cond_broadcast(&cond_leit);
+   pthread_mutex_unlock(&mutex);
+}
 
+//thread leitora
+void * leitor (void * arg) {
+  int *id = (int *) arg;
+  while(1) {
+    InicLeit(*id);
+    printf("Leitora %d esta lendo\n", *id);
+    FimLeit(*id);
+    sleep(1);
+  } 
+  free(arg);
   pthread_exit(NULL);
 }
 
-/* Thread 2, 3 e 4 */
-void * meio(void *arg) {
-  tArgs *args = (tArgs*) arg;
-  pthread_mutex_lock(&primeiro_contador_mutex);
-  if (primeiro_contador == 0){
-      pthread_cond_wait(&meio_cond, &primeiro_contador_mutex);
-  }  
-  pthread_mutex_unlock(&primeiro_contador_mutex);
-
-  if(args->id == 1)
-    printf("Fique a vontade.\n");
-  else if(args->id == 2)
-    printf("Sente-se por favor.\n");
-  else
-    printf("Aceita um copo d’agua?.\n");
-  
-  
-  pthread_mutex_lock(&ultimo_contador_mutex);
-  ultimo_contador++;
-  if (ultimo_contador == 3) { 
-      pthread_cond_signal(&ultimo_cond);
-  }
-  pthread_mutex_unlock(&ultimo_contador_mutex); 
-  
+//thread leitora
+void * escritor (void * arg) {
+  int *id = (int *) arg;
+  while(1) {
+    InicEscr(*id);
+    printf("Escritora %d esta escrevendo\n", *id);
+    FimEscr(*id);
+    sleep(1);
+  } 
+  free(arg);
   pthread_exit(NULL);
 }
 
-/* Thread 1 */
-void * fim() {
-  pthread_mutex_lock(&ultimo_contador_mutex);
-  if (ultimo_contador < 3) { 
-     pthread_cond_wait(&ultimo_cond, &ultimo_contador_mutex);
-  }
-  pthread_mutex_unlock(&ultimo_contador_mutex); 
-  printf("Volte sempre!\n");
+//funcao principal
+int main(void) {
+  //identificadores das threads
+  pthread_t tid[L+E];
+  int id[L+E];
+
+  //inicializa as variaveis de sincronizacao
+  pthread_mutex_init(&mutex, NULL);
+  pthread_cond_init(&cond_leit, NULL);
+  pthread_cond_init(&cond_escr, NULL);
+
+  //cria as threads leitoras
+  for(int i=0; i<L; i++) {
+    id[i] = i+1;
+    if(pthread_create(&tid[i], NULL, leitor, (void *) &id[i])) exit(-1);
+  } 
+  
+  //cria as threads escritoras
+  for(int i=0; i<E; i++) {
+    id[i+L] = i+1;
+    if(pthread_create(&tid[i+L], NULL, escritor, (void *) &id[i+L])) exit(-1);
+  } 
+
   pthread_exit(NULL);
-}
-
-/* Funcao principal */
-int main(int argc, char *argv[]) {
-  int i; 
-  pthread_t threads[NTHREADS];
-
-  /* Inicilaiza o mutex (lock de exclusao mutua) e a variavel de condicao */
-  pthread_mutex_init(&primeiro_contador_mutex, NULL);
-  pthread_mutex_init(&ultimo_contador_mutex, NULL);
-  pthread_cond_init (&meio_cond, NULL);
-  pthread_cond_init (&ultimo_cond, NULL);
-
-  tArgs *args = (tArgs*) malloc(sizeof(tArgs)*3);
-  if(args==NULL) {puts("ERRO--malloc"); return 2;}
-   
-
-  /* Cria as threads */
-  pthread_create(&threads[0], NULL, fim, NULL);
-  for(int i=1; i <= 3; i++){
-    (args+(i-1))->id = i;
-    pthread_create(&threads[i], NULL, meio, (void*) (args+(i-1))); 
-  }
-  pthread_create(&threads[4], NULL, inicio, NULL);
-
-  /* Espera todas as threads completarem */
-  for (i = 0; i < NTHREADS; i++) {
-  pthread_join(threads[i], NULL);
-  }
-
-  /* Desaloca variaveis e termina */
-  free(args);
-  pthread_mutex_destroy(&primeiro_contador_mutex);
-  pthread_mutex_destroy(&ultimo_contador_mutex);
-  pthread_cond_destroy(&meio_cond);
-  pthread_cond_destroy(&ultimo_cond);
+  return 0;
 }
