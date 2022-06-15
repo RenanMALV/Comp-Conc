@@ -62,7 +62,7 @@ class ThreadCheckPar extends Thread {
 //classe da aplicacao
 class program {
     // num threads
-    static final int N = 2;
+    static final int N = 4;
     // num elementos
     static final int NElem = 1000000;
 
@@ -84,6 +84,7 @@ class program {
             threads[i] = new ThreadCheckPar(i, N, NPs);
         }
 
+        long T0 = System.currentTimeMillis();
         //inicia as threads
         for (int i=0; i<threads.length; i++) {
             threads[i].start();
@@ -93,8 +94,10 @@ class program {
         for (int i=0; i<threads.length; i++) {
             try { threads[i].join(); } catch (InterruptedException e) { return; }
         }
+        long delta = System.currentTimeMillis() - T0;
 
         System.out.println("Total de numeros pares no array = " + NPs.get()); 
+        System.out.println("Tempo concorrente = " + delta*1.0/1000 + "s");
 
         //verifica corretude
         if(verify(arr, NPs))
