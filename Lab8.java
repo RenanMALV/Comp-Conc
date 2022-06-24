@@ -3,14 +3,16 @@
 /* Disciplina: Computacao Concorrente */
 
 /*
--Instruções para execução no PowerShell-
-javac Lab8.java
-java Lab8 | out-file -encoding utf8 "saida.py"
-// Executando o programa, force uma interrupção para terminar
-// para verificar a corretude, execute:
-python3 .\saida.py
-// os logs serão mostrados normalmente
-// se não ocorrer avisos de erro, a corretude está garantida!
+  
+  # -Instruções para execução no PowerShell-
+  javac Lab8.java
+  java Lab8 | out-file -encoding utf8 "saida.py"
+  # Executando o programa, force uma interrupção para terminar
+  # para verificar a corretude, execute:
+  python3 .\saida.py
+  # os logs serão mostrados normalmente
+  # se não ocorrer avisos de erro, a corretude está garantida!
+  
 */
 
 // importa a implementação do Monitor que aplica logica do padrao leitores/escritores
