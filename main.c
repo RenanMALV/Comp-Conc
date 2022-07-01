@@ -1,11 +1,12 @@
 /*
-Lab-5
+Lab-9
 Disciplina: Computacao Concorrente 
 */
 
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <semaphore.h>
 
 #define NTHREADS  5
 
@@ -13,24 +14,18 @@ typedef struct{
   int id; //identificador do elemento que a thread ira processar
 } tArgs;
 
-/* Variaveis globais */
-int primeiro_contador = 0;
-int ultimo_contador = 0;
-pthread_mutex_t primeiro_contador_mutex;
-pthread_mutex_t ultimo_contador_mutex;
-pthread_cond_t meio_cond;
-pthread_cond_t ultimo_cond;
-
+/* semáforos */
+sem_t meio_cond;
+sem_t ultimo_cond;
+// contador para o último semáforo
+int ultimo_contador=0;
 
 /* Thread 5 */
 void * inicio() {
   printf("Seja bem-vindo!\n");
 
-  pthread_mutex_lock(&primeiro_contador_mutex);
-  primeiro_contador++;
-  pthread_mutex_unlock(&primeiro_contador_mutex);
-
-  pthread_cond_broadcast(&meio_cond);
+  // desbloqueia uma thread do tipo meio
+  sem_post(&meio_cond);
 
   pthread_exit(NULL);
 }
@@ -38,11 +33,9 @@ void * inicio() {
 /* Thread 2, 3 e 4 */
 void * meio(void *arg) {
   tArgs *args = (tArgs*) arg;
-  pthread_mutex_lock(&primeiro_contador_mutex);
-  if (primeiro_contador == 0){
-      pthread_cond_wait(&meio_cond, &primeiro_contador_mutex);
-  }  
-  pthread_mutex_unlock(&primeiro_contador_mutex);
+
+  // espera o semáforo do tipo meio
+  sem_wait(&meio_cond);
 
   if(args->id == 1)
     printf("Fique a vontade.\n");
@@ -50,25 +43,25 @@ void * meio(void *arg) {
     printf("Sente-se por favor.\n");
   else
     printf("Aceita um copo d’agua?.\n");
-  
-  
-  pthread_mutex_lock(&ultimo_contador_mutex);
+
+  // soma no contador que dispara a última thread 
   ultimo_contador++;
-  if (ultimo_contador == 3) { 
-      pthread_cond_signal(&ultimo_cond);
-  }
-  pthread_mutex_unlock(&ultimo_contador_mutex); 
+  if (ultimo_contador == 3)
+    // libera uma thread do tipo fim
+    sem_post(&ultimo_cond);
+  else
+    // libera uma thread do tipo meio
+    sem_post(&meio_cond);
   
   pthread_exit(NULL);
 }
 
 /* Thread 1 */
 void * fim() {
-  pthread_mutex_lock(&ultimo_contador_mutex);
-  if (ultimo_contador < 3) { 
-     pthread_cond_wait(&ultimo_cond, &ultimo_contador_mutex);
-  }
-  pthread_mutex_unlock(&ultimo_contador_mutex); 
+
+  // espera o ultimo semáforo
+  sem_wait(&ultimo_cond);
+  
   printf("Volte sempre!\n");
   pthread_exit(NULL);
 }
@@ -78,11 +71,9 @@ int main(int argc, char *argv[]) {
   int i; 
   pthread_t threads[NTHREADS];
 
-  /* Inicilaiza o mutex (lock de exclusao mutua) e a variavel de condicao */
-  pthread_mutex_init(&primeiro_contador_mutex, NULL);
-  pthread_mutex_init(&ultimo_contador_mutex, NULL);
-  pthread_cond_init (&meio_cond, NULL);
-  pthread_cond_init (&ultimo_cond, NULL);
+  /* Inicilaiza o semáforo */
+  sem_init(&meio_cond, 0, 0);
+  sem_init(&ultimo_cond, 0, 0);
 
   tArgs *args = (tArgs*) malloc(sizeof(tArgs)*3);
   if(args==NULL) {puts("ERRO--malloc"); return 2;}
@@ -101,10 +92,9 @@ int main(int argc, char *argv[]) {
   pthread_join(threads[i], NULL);
   }
 
-  /* Desaloca variaveis e termina */
+  /* Desaloca variaveis e semáforos terminando o programa */
   free(args);
-  pthread_mutex_destroy(&primeiro_contador_mutex);
-  pthread_mutex_destroy(&ultimo_contador_mutex);
-  pthread_cond_destroy(&meio_cond);
-  pthread_cond_destroy(&ultimo_cond);
+  sem_destroy(&meio_cond);
+  sem_destroy(&ultimo_cond);  
+  pthread_exit(NULL);
 }
