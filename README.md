@@ -1,5 +1,5 @@
 # Computação Concorrente
-## Lab - 9
+## Lab - 10
 
 Trabalhos de computação concorrente
 

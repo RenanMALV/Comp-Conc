@@ -1,5 +1,5 @@
 /*
-Lab-9
+Lab-10
 Disciplina: Computacao Concorrente 
 */
 
@@ -7,104 +7,129 @@ Disciplina: Computacao Concorrente
 #include <stdio.h>
 #include <stdlib.h>
 #include <semaphore.h>
+#include <unistd.h> // função sleep 
 
-#define NTHREADS  5
+//leitores
+#define L 5
+//escritores
+#define E 5 
 
-typedef struct{
-  int id; //identificador do elemento que a thread ira processar
-} tArgs;
+int cont_l=0; //contador de leitores
+int cont_e=0; //contador de escritores
 
-/* semáforos */
-sem_t meio_cond;
-sem_t ultimo_cond;
-sem_t semBin;
-// contador para o último semáforo
-int ultimo_contador=0;
+sem_t mutex_l, mutex_e; // mutex
+sem_t sem_l, sem_e; // semaforo de leitores e escritores
 
-/* Thread 5 */
-void * inicio() {
-  printf("Seja bem-vindo!\n");
 
-  // desbloqueia 3 threads do tipo meio
-  for(int i=0;i<3;i++)
-    sem_post(&meio_cond);
-
-  pthread_exit(NULL);
+// Thread Leitora
+void * leitor (void * arg) {
+	int *id = (int *) arg;
+	while(1) {
+		printf("Leitor %d quer ler\n", *id);
+		
+		sem_wait(&sem_l); // garante prioridade para escritores
+		
+		printf("Leitor %d pode ler\n", *id);
+		
+		sem_wait(&mutex_l);
+		cont_l++;
+		if(cont_l==1){
+			sem_wait(&sem_e);
+			printf("Leitor %d bloqueando escrita\n", *id);
+		}
+		sem_post(&mutex_l);                      
+		sem_post(&sem_l);
+	
+		printf("Leitor %d lendo\n", *id);
+		
+		sleep(1);  //realiza leitura
+		
+		printf("Leitor %d terminou a leitura\n", *id);
+	
+		sem_wait(&mutex_l); 
+		cont_l--;
+		if(cont_l==0){
+			printf("Leitor %d desbloqueando escrita\n", *id);
+			sem_post(&sem_e);
+		}
+		sem_post(&mutex_l);
+		
+	}
+	free(arg);
+	pthread_exit(NULL);
 }
 
-/* Thread 2, 3 e 4 */
-void * meio(void *arg) {
-  tArgs *args = (tArgs*) arg;
+// Thread Escritora
+void * escritor (void * arg) {
+	int *id = (int *) arg;
+	while(1) {
+		printf("Escritor %d quer escrever\n", *id);
+		
+		sem_wait(&mutex_e); 
+		cont_e++;
+		if(cont_e==1){
+			sem_wait(&sem_l);
+			printf("Escritor %d bloqueando novos leitores\n", *id);
+		}
+		sem_post(&mutex_e);
+		sem_wait(&sem_e);
+		
+		printf("Escritor %d escrevendo\n", *id);                  
+		//realiza escrita
+		sleep(1);  // simula escrita
+	
+		printf("Escritor %d terminou a escrita\n", *id);
+		
+		sem_post(&sem_e);
+		sem_wait(&mutex_e);
+		cont_e--;
+		if(cont_e==0){
+			printf("Escritor %d desbloqueando leitores\n", *id);
+			sem_post(&sem_l);
+		}
+		sem_post(&mutex_e);
 
-  // espera o semáforo do tipo meio
-  sem_wait(&meio_cond);
-
-  if(args->id == 1)
-    printf("Fique a vontade.\n");
-  else if(args->id == 2)
-    printf("Sente-se por favor.\n");
-  else
-    printf("Aceita um copo d’agua?.\n");
-
-  // garante exclusão mútua
-  sem_wait(&semBin);
-  // soma no contador que dispara a última thread 
-  ultimo_contador++;
-  // fim da seção crítica
-  sem_post(&semBin);
-
-  // verifica se é a última thread do tipo meio
-  if (ultimo_contador == 3)
-    // libera uma thread do tipo fim
-    sem_post(&ultimo_cond);
-  
-  pthread_exit(NULL);
+		sleep(5); // simula o tempo de chegada de um novo escritor
+	}
+	free(arg);
+	pthread_exit(NULL);
 }
 
-/* Thread 1 */
-void * fim() {
-
-  // espera o ultimo semáforo
-  sem_wait(&ultimo_cond);
-  
-  printf("Volte sempre!\n");
-  pthread_exit(NULL);
-}
-
-/* Funcao principal */
 int main(int argc, char *argv[]) {
-  int i; 
-  pthread_t threads[NTHREADS];
+    int i; 
+    pthread_t tid[L+E];  //identificadores das threads no sistema
+    int id[L+E];  //identificadores locais das threads
 
-  /* Inicilaiza os semáforos */
-  // threads do meio
-  sem_init(&meio_cond, 0, 0);
-  //thread do fim
-  sem_init(&ultimo_cond, 0, 0);
-  // semáforo binário para exclusão mútua
-  sem_init(&semBin, 0, 1);
+    // Inicia os semáforos binários
+    sem_init(&mutex_l, 0, 1);
+    sem_init(&mutex_e, 0, 1);
+    sem_init(&sem_l, 0, 1);      
+    sem_init(&sem_e, 0, 1);      
 
-  tArgs *args = (tArgs*) malloc(sizeof(tArgs)*3);
-  if(args==NULL) {puts("ERRO--malloc"); return 2;}
-   
+    //cria leitores
+    for(int i=0; i<L; i++) {
+        id[i] = i+1;
+        if(pthread_create(&tid[i], NULL, leitor, (void *) &id[i]))
+          exit(-1);
+    } 
 
-  /* Cria as threads */
-  pthread_create(&threads[0], NULL, fim, NULL);
-  for(int i=1; i <= 3; i++){
-    (args+(i-1))->id = i;
-    pthread_create(&threads[i], NULL, meio, (void*) (args+(i-1))); 
-  }
-  pthread_create(&threads[4], NULL, inicio, NULL);
+    //cria escritores
+    for(int i=0; i<E; i++) {
+        id[i+L] = i+1;
+        if(pthread_create(&tid[i+L], NULL, escritor, (void *) &id[i+L]))
+          exit(-1);
+    } 
 
-  /* Espera todas as threads completarem */
-  for (i = 0; i < NTHREADS; i++) {
-  pthread_join(threads[i], NULL);
-  }
+    /* Espera todas as threads completarem */
+    for (i = 0; i < L+E; i++) {
+        pthread_join(tid[i], NULL);
+    }
 
-  /* Desaloca variaveis e semáforos terminando o programa */
-  free(args);
-  sem_destroy(&meio_cond);
-  sem_destroy(&ultimo_cond);  
-  sem_destroy(&semBin);
-  pthread_exit(NULL);
+    /* Desaloca variaveis e termina */
+    sem_destroy(&mutex_l);
+    sem_destroy(&mutex_e);
+    sem_destroy(&sem_l);
+    sem_destroy(&sem_e);
+
+    pthread_exit(NULL);
 }
